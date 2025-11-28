@@ -22,66 +22,70 @@ export class MCPHelper {
   async sendCommand(command: string, timeout: number = 10000): Promise<void> {
     console.log(`🤖 发送AI命令: "${command}"`);
 
-    // 查找输入框（支持多种选择器）
-    const inputSelectors = [
-      'textarea[placeholder*="message"]',
-      'input[placeholder*="message"]',
-      'textarea[placeholder*="输入"]',
-      'input[placeholder*="输入"]',
-      'textarea[placeholder*="Message"]',
-      'input[placeholder*="Message"]',
-      '.chat-input textarea',
-      '.message-input',
-      '[contenteditable="true"]',
-      'div[role="textbox"]'
-    ];
+    // Use user-facing locators (matching AIAssistantPage)
+    const chatInput = this.page.getByPlaceholder(/message|输入|Message/i)
+      .or(this.page.getByRole('textbox', { name: /message|chat/i }))
+      .or(this.page.locator('.chat-input textarea'))
+      .first();
 
-    let inputFound = false;
-    for (const selector of inputSelectors) {
-      try {
-        await this.page.waitForSelector(selector, { timeout: 3000, state: 'visible' });
-        await this.page.fill(selector, command);
-        inputFound = true;
-        console.log(`✓ 使用选择器: ${selector}`);
-        break;
-      } catch (error) {
-        continue;
-      }
-    }
-
-    if (!inputFound) {
-      throw new Error('无法找到AI输入框');
-    }
-
-    // 添加延迟以模拟真实用户输入
-    const delay = parseInt(process.env.AI_COMMAND_DELAY || '1000');
-    await this.page.waitForTimeout(delay);
-
-    // 发送命令（尝试多种方式）
     try {
-      await this.page.keyboard.press('Enter');
-    } catch (error) {
-      // 尝试点击发送按钮
-      const sendButtonSelectors = [
-        'button[type="submit"]',
-        'button:has-text("发送")',
-        'button:has-text("Send")',
-        '.send-button',
-        '[aria-label*="发送"]',
-        '[aria-label*="Send"]'
-      ];
+      // Wait for input to be visible
+      await chatInput.waitFor({ state: 'visible', timeout: 5000 });
+      console.log(`✓ 输入框可见`);
 
-      for (const selector of sendButtonSelectors) {
-        try {
-          await this.page.click(selector, { timeout: 2000 });
+      // CRITICAL: Wait for input to be enabled (not disabled)
+      // This handles the case where AI is still processing previous message
+      console.log(`⏳ 等待输入框启用...`);
+      const startTime = Date.now();
+      const enableTimeout = 30000; // 30 seconds
+
+      while (Date.now() - startTime < enableTimeout) {
+        const isDisabled = await chatInput.isDisabled().catch(() => true);
+        if (!isDisabled) {
+          console.log(`✓ 输入框已启用`);
           break;
-        } catch (e) {
-          continue;
+        }
+
+        // Check every 500ms
+        await this.page.waitForTimeout(500);
+
+        // Log progress every 5 seconds
+        const elapsed = Date.now() - startTime;
+        if (elapsed % 5000 < 500) {
+          console.log(`⏳ 仍在等待输入框启用... (${Math.round(elapsed / 1000)}s)`);
         }
       }
-    }
 
-    console.log(`✓ 命令已发送`);
+      // Final check
+      const stillDisabled = await chatInput.isDisabled().catch(() => true);
+      if (stillDisabled) {
+        throw new Error('输入框在30秒后仍处于禁用状态');
+      }
+
+      // Fill the input
+      await chatInput.fill(command);
+      console.log(`✓ 使用user-facing选择器填充输入框`);
+
+      // 添加延迟以模拟真实用户输入
+      const delay = parseInt(process.env.AI_COMMAND_DELAY || '1000');
+      await this.page.waitForTimeout(delay);
+
+      // 发送命令（尝试多种方式）
+      try {
+        await this.page.keyboard.press('Enter');
+      } catch (error) {
+        // 尝试点击发送按钮 (use user-facing selector)
+        const sendButton = this.page.getByRole('button', { name: /send|发送|submit/i })
+          .or(this.page.locator('button[type="submit"]'))
+          .first();
+
+        await sendButton.click({ timeout: 2000 });
+      }
+
+      console.log(`✓ 命令已发送`);
+    } catch (error) {
+      throw new Error(`无法找到或填充AI输入框: ${error}`);
+    }
   }
 
   /**

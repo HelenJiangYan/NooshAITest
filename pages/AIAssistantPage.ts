@@ -40,12 +40,33 @@ export class AIAssistantPage {
 
   async openAIAssistant() {
     // Check if AI Assistant is already open by looking for the chat input
-    const isAlreadyOpen = await this.chatInput.isVisible().catch(() => false);
+    try {
+      const isAlreadyOpen = await this.chatInput.isVisible({ timeout: 3000 }).catch(() => false);
 
-    if (!isAlreadyOpen) {
-      // Use user-facing selector
-      await this.aiAssistantButton.click();
+      if (isAlreadyOpen) {
+        console.log('✓ AI助手已打开');
+        return;
+      }
+    } catch {
+      // Chat input not visible, need to open
+    }
+
+    // Try to click AI Assistant button
+    try {
+      await this.aiAssistantButton.click({ timeout: 5000 });
+      console.log('✓ 已点击AI助手按钮');
       await this.page.waitForTimeout(1000);
+
+      // Verify it opened
+      await this.chatInput.waitFor({ state: 'visible', timeout: 5000 });
+    } catch (error) {
+      console.log(`⚠️ 打开AI助手时出错: ${error}`);
+      // Maybe it's already at the chatbot page, check again
+      const isNowOpen = await this.chatInput.isVisible().catch(() => false);
+      if (!isNowOpen) {
+        throw new Error('无法打开AI助手');
+      }
+      console.log('✓ AI助手已经在当前页面');
     }
   }
 
@@ -64,23 +85,28 @@ export class AIAssistantPage {
     console.log('⏳ 等待 AI 响应...');
 
     try {
-      // Step 1: Get initial content to compare
+      // Step 1: Wait briefly for the message to be sent
+      await this.page.waitForTimeout(1000);
+
+      // Step 2: Get initial message count/content to compare
       const chatArea = this.page.locator('main, [role="main"], .chat-area, .conversation-area').first();
       const initialContent = await chatArea.textContent().catch(() => '') || '';
       const initialLength = initialContent.length;
       console.log(`📏 初始内容长度: ${initialLength}`);
 
-      // Step 2: Optional wait for loading indicator (non-blocking)
-      // Polling approach to avoid "failed" steps in Allure report
-      console.log('🔍 检查加载指示器...');
+      // Count existing messages
+      const initialMessageCount = await this.messages.count().catch(() => 0);
+      console.log(`📝 初始消息数: ${initialMessageCount}`);
 
+      // Step 3: Check for loading indicators (with extended timeout)
+      console.log('🔍 检查加载指示器...');
       const dotsIndicator = this.page.locator('text="..."');
       let loadingDetected = false;
       let loadingType: string | null = null;
 
-      // Poll for loading indicator (up to 2 seconds)
-      const checkInterval = 200; // Check every 200ms
-      const maxChecks = 10; // 2 seconds total
+      // Poll for loading indicator (up to 5 seconds to catch slow responses)
+      const checkInterval = 300; // Check every 300ms
+      const maxChecks = 17; // ~5 seconds total
 
       for (let i = 0; i < maxChecks; i++) {
         const dotsVisible = await dotsIndicator.isVisible().catch(() => false);
@@ -102,57 +128,62 @@ export class AIAssistantPage {
       }
 
       if (loadingDetected) {
-        // Wait for loading to disappear
+        // Wait for loading to disappear with longer timeout
         const indicator = loadingType === 'dots' ? dotsIndicator : this.loadingIndicator;
-        await indicator.waitFor({ state: 'hidden', timeout }).catch(() => {
-          console.log(`⚠️  ${loadingType === 'dots' ? '点状' : '旋转'}加载指示器未消失`);
+        await indicator.waitFor({ state: 'hidden', timeout: timeout * 0.8 }).catch(() => {
+          console.log(`⚠️  ${loadingType === 'dots' ? '点状' : '旋转'}加载指示器未在超时内消失`);
         });
+        // Extra wait for content to render after loading disappears
+        await this.page.waitForTimeout(1000);
       } else {
         console.log('ℹ️  未检测到加载指示器（可能响应很快）');
       }
 
-      // Step 3: Wait for content to change (indicating new response)
+      // Step 4: Wait for content or message count to change
       console.log('⏳ 等待内容变化（新响应到达）...');
       const startTime = Date.now();
-      const maxWaitTime = 30000; // 30 seconds max
+      const maxWaitTime = timeout;
       let contentChanged = false;
 
       while (Date.now() - startTime < maxWaitTime) {
-        await this.page.waitForTimeout(2000); // Check every 2 seconds
+        await this.page.waitForTimeout(1500); // Check every 1.5 seconds
 
         const currentContent = await chatArea.textContent().catch(() => '') || '';
         const currentLength = currentContent.length;
+        const currentMessageCount = await this.messages.count().catch(() => 0);
 
-        // Check if content has significantly increased
-        if (currentLength > initialLength + 50) {
-          console.log(`✓ 检测到内容变化: ${initialLength} → ${currentLength} (+${currentLength - initialLength} 字符)`);
+        // Check multiple indicators of new content
+        const lengthIncreased = currentLength > initialLength + 30; // Lower threshold
+        const messageCountIncreased = currentMessageCount > initialMessageCount;
+        const hasResponseIndicators = /Projects Associated|Project|Quick Actions|Results|Details|Status|Complete|Error|Sorry/i.test(currentContent);
+
+        if (lengthIncreased || messageCountIncreased) {
+          console.log(`✓ 检测到内容变化: ${initialLength} → ${currentLength} (+${currentLength - initialLength} 字符, 消息数: ${initialMessageCount} → ${currentMessageCount})`);
           contentChanged = true;
           break;
         }
 
-        // Also check for response indicators
-        const hasResponseIndicators = /Projects Associated|Project ID|Quick Actions|Results|Project Details|Status:/i.test(currentContent);
         if (hasResponseIndicators && currentLength > initialLength) {
           console.log('✓ 检测到响应指示器');
           contentChanged = true;
           break;
         }
 
-        console.log(`⏳ 继续等待... (${currentLength} 字符, ${Math.round((Date.now() - startTime) / 1000)}s)`);
+        console.log(`⏳ 继续等待... (${currentLength} 字符, ${currentMessageCount} 消息, ${Math.round((Date.now() - startTime) / 1000)}s)`);
       }
 
       if (!contentChanged) {
-        console.log('⚠️  30秒内未检测到明显的内容变化');
+        console.log(`⚠️  ${Math.round(maxWaitTime/1000)}秒内未检测到明显的内容变化`);
       }
 
-      // Step 4: Additional wait for content to stabilize
-      await this.page.waitForTimeout(3000);
+      // Step 5: Additional wait for content to stabilize
+      await this.page.waitForTimeout(2000);
       console.log('✓ 响应等待完成');
 
     } catch (error) {
       console.log(`⚠️  等待响应时出错: ${error}`);
       console.log('使用备用等待策略...');
-      await this.page.waitForTimeout(15000);
+      await this.page.waitForTimeout(10000);
     }
   }
 

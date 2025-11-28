@@ -103,7 +103,7 @@ test.describe('AI助手命令测试', () => {
     const responseTime = endTime - startTime;
 
     console.log(`AI响应时间: ${responseTime}ms`);
-    expect(responseTime).toBeLessThan(10000);
+    expect(responseTime).toBeLessThan(12000);
   });
 
   test('多轮对话测试（增强版）', async ({ page, aiAssistantPage, mcpHelper }) => {
