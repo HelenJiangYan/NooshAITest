@@ -13,22 +13,23 @@ export class LoginPage {
   constructor(page: Page) {
     this.page = page;
 
-    // Updated selectors for Noosh login form
-    this.usernameInput = page.locator(
-      'input[name="j_username"], input#outlined-userid, input[name="username"], input[type="email"]'
-    ).first();
+    // User-facing selectors for Noosh login form
+    // 优先使用 getByRole, getByLabel, getByPlaceholder 等用户可见的方式
+    this.usernameInput = page.getByRole('textbox', { name: /user|username|email|userid/i })
+      .or(page.getByLabel(/user|username|email/i))
+      .or(page.locator('input[name="j_username"], input#outlined-userid'))
+      .first();
 
-    this.passwordInput = page.locator(
-      'input[name="j_password"], input#outlined-adornment-password, input[name="password"], input[type="password"]'
-    ).first();
+    this.passwordInput = page.getByLabel(/password|密码/i)
+      .or(page.locator('input[type="password"]'))
+      .first();
 
-    this.submitButton = page.locator(
-      'button:has-text("Login"), button[type="submit"], button:has-text("登录")'
-    ).first();
+    this.submitButton = page.getByRole('button', { name: /login|登录|submit/i })
+      .first();
 
-    this.errorMessage = page.locator(
-      '.error-message, .alert-error, [role="alert"]'
-    );
+    // 错误消息优先使用 role="alert"
+    this.errorMessage = page.getByRole('alert')
+      .or(page.locator('.error-message, .alert-error'));
   }
 
   async goto() {

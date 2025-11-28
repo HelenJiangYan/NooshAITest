@@ -15,25 +15,27 @@ export class AIAssistantPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.aiAssistantButton = page.locator(
-      'text=AI Assistant, button:has-text("AI"), [aria-label*="AI"]'
-    ).first();
+    // User-facing selectors for Noosh AI Assistant
+    this.aiAssistantButton = page.getByRole('button', { name: /AI Assistant|AI/i })
+      .or(page.getByLabel(/AI Assistant|AI/i))
+      .first();
 
-    this.chatInput = page.locator(
-      'textarea[placeholder*="message"], input[placeholder*="message"], textarea[placeholder*="输入"], .chat-input textarea, input[placeholder*="Message"]'
-    ).first();
+    this.chatInput = page.getByPlaceholder(/message|输入|Message/i)
+      .or(page.getByRole('textbox', { name: /message|chat/i }))
+      .or(page.locator('.chat-input textarea'))
+      .first();
 
-    this.sendButton = page.locator(
-      'button[type="submit"], button:has-text("发送"), button:has-text("Send")'
-    ).first();
+    this.sendButton = page.getByRole('button', { name: /send|发送|submit/i })
+      .or(page.locator('button[type="submit"]'))
+      .first();
 
-    // Messages could be in various formats - look for text content in the chat area
-    this.messages = page.locator('.message, .chat-message, [role="article"], .MuiBox-root p, div p');
+    // Messages - prefer role="article" or semantic selectors
+    this.messages = page.locator('[role="article"]')
+      .or(page.locator('.message, .chat-message, .MuiBox-root p, div p'));
     this.lastMessage = this.messages.last();
 
-    this.loadingIndicator = page.locator(
-      '.loading, .spinner, .typing-indicator'
-    );
+    this.loadingIndicator = page.getByLabel(/loading|加载/i)
+      .or(page.locator('.loading, .spinner, .typing-indicator'));
   }
 
   async openAIAssistant() {
@@ -41,9 +43,8 @@ export class AIAssistantPage {
     const isAlreadyOpen = await this.chatInput.isVisible().catch(() => false);
 
     if (!isAlreadyOpen) {
-      // Try to find and click the AI Assistant button
-      const button = this.page.locator('text="AI Assistant"').first();
-      await button.click();
+      // Use user-facing selector
+      await this.aiAssistantButton.click();
       await this.page.waitForTimeout(1000);
     }
   }
@@ -201,9 +202,8 @@ export class AIAssistantPage {
   }
 
   async clearConversation() {
-    const clearButton = this.page.locator(
-      'button:has-text("清空"), button:has-text("Clear")'
-    ).first();
+    const clearButton = this.page.getByRole('button', { name: /clear|清空/i })
+      .first();
 
     try {
       await clearButton.click();
