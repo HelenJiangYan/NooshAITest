@@ -92,7 +92,7 @@ noosh-ai-tests/
 │   │   │   ├── commands.spec.ts        # AI 命令测试
 │   │   │   └── multi-turn-conversations.spec.ts  # 多轮对话测试
 │   │   └── workflows/
-│   │       └── end-to-end.spec.ts      # 完整工作流测试
+│   │       └── user-workflows.spec.ts  # 用户工作流测试
 │   │
 │   └── integration/                    # ⚡ 集成测试
 │       ├── mcp/                        # MCP 协议测试（26个用例）

@@ -195,7 +195,7 @@ tests/
 │   │   ├── commands.spec.ts            # 命令响应测试
 │   │   └── multi-turn-conversations.spec.ts  # 多轮对话测试
 │   └── workflows/                      # 工作流测试
-│       └── end-to-end.spec.ts          # 完整流程测试
+│       └── user-workflows.spec.ts      # 用户工作流测试
 │
 └── integration/                        # 集成测试
     ├── mcp/                            # MCP 协议测试
