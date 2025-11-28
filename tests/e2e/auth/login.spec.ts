@@ -8,7 +8,7 @@ import { TestUsers } from '../../../fixtures/test-data';
 test.describe('登录功能测试', () => {
   test.beforeEach(async ({ page }) => {
     await page.context().clearCookies();
-    await page.goto('/workspace/chatbot');
+    // 不需要在这里访问页面，login() 方法会处理完整的登录流程
   });
 
   test('成功登录 - 标准用户 @smoke', async ({ loginPage, page }) => {
@@ -19,11 +19,17 @@ test.describe('登录功能测试', () => {
     await expect(page).toHaveURL(/.*workspace.*/);
     expect(await loginPage.isLoginSuccessful()).toBeTruthy();
 
-    // 验证用户已登录的UI元素
-    await expect(page.locator('.user-profile, .user-menu')).toBeVisible();
+    // 验证用户已登录的UI元素 - 检查Settings按钮是否可见
+    await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
   });
 
-  test('登录失败 - 错误密码', async ({ loginPage }) => {
+  test('登录失败 - 错误密码', async ({ loginPage, page }) => {
+    // 访问认证登录页面
+    const authUrl = process.env.AUTH_URL || 'https://nooshauth.qa2.noosh.com';
+    await page.goto(authUrl, { waitUntil: 'load', timeout: 30000 });
+    await loginPage.usernameInput.waitFor({ state: 'visible', timeout: 15000 });
+
+    // 填写错误的登录信息
     await loginPage.usernameInput.fill(TestUsers.standard.username);
     await loginPage.passwordInput.fill('wrongpassword');
     await loginPage.submitButton.click();
@@ -35,7 +41,13 @@ test.describe('登录功能测试', () => {
     expect(errorText.toLowerCase()).toMatch(/错误|invalid|incorrect|失败/);
   });
 
-  test('登录表单UI验证', async ({ loginPage }) => {
+  test('登录表单UI验证', async ({ loginPage, page }) => {
+    // 访问认证登录页面
+    const authUrl = process.env.AUTH_URL || 'https://nooshauth.qa2.noosh.com';
+    await page.goto(authUrl, { waitUntil: 'load', timeout: 30000 });
+    await loginPage.usernameInput.waitFor({ state: 'visible', timeout: 15000 });
+
+    // 验证表单元素
     await expect(loginPage.usernameInput).toBeVisible();
     await expect(loginPage.passwordInput).toBeVisible();
     await expect(loginPage.submitButton).toBeVisible();

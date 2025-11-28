@@ -11,7 +11,7 @@ async function globalTeardown(config: FullConfig) {
     console.log('\n📊 测试执行摘要:');
     console.log(`   测试配置: ${config.configFile}`);
     console.log(`   Worker数: ${config.workers}`);
-    console.log(`   重试次数: ${config.retries}`);
+    console.log(`   重试次数: ${config.projects[0]?.retries ?? 'undefined'}`);
 
   } catch (error) {
     console.error('❌ 全局清理失败:', error);

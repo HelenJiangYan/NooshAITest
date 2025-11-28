@@ -1,5 +1,5 @@
 import { test as base, Page } from '@playwright/test';
-import { LoginPage, AIAssistantPage, WorkspacePage } from '../utils/page-objects';
+import { LoginPage, AIAssistantPage, WorkspacePage } from '../pages';
 import { MCPHelper } from '../utils/mcp-helper';
 
 /**

@@ -1,63 +1,6 @@
 import { Page, Locator } from '@playwright/test';
 
 /**
- * 登录页面对象
- */
-export class LoginPage {
-  readonly page: Page;
-  readonly usernameInput: Locator;
-  readonly passwordInput: Locator;
-  readonly submitButton: Locator;
-  readonly errorMessage: Locator;
-
-  constructor(page: Page) {
-    this.page = page;
-
-    // Updated selectors for Noosh login form
-    this.usernameInput = page.locator(
-      'input[name="j_username"], input#outlined-userid, input[name="username"], input[type="email"]'
-    ).first();
-
-    this.passwordInput = page.locator(
-      'input[name="j_password"], input#outlined-adornment-password, input[name="password"], input[type="password"]'
-    ).first();
-
-    this.submitButton = page.locator(
-      'button:has-text("Login"), button[type="submit"], button:has-text("登录")'
-    ).first();
-
-    this.errorMessage = page.locator(
-      '.error-message, .alert-error, [role="alert"]'
-    );
-  }
-
-  async goto() {
-    await this.page.goto('/workspace/chatbot');
-    await this.page.waitForLoadState('networkidle');
-  }
-
-  async login(username: string, password: string) {
-    await this.usernameInput.fill(username);
-    await this.passwordInput.fill(password);
-    await this.submitButton.click();
-    await this.page.waitForURL('**/workspace/**', { timeout: 15000 });
-  }
-
-  async getErrorMessage(): Promise<string> {
-    return await this.errorMessage.textContent() || '';
-  }
-
-  async isLoginSuccessful(): Promise<boolean> {
-    try {
-      await this.page.waitForURL('**/workspace/**', { timeout: 5000 });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
-/**
  * AI助手页面对象
  */
 export class AIAssistantPage {
@@ -132,7 +75,7 @@ export class AIAssistantPage {
 
       const dotsIndicator = this.page.locator('text="..."');
       let loadingDetected = false;
-      let loadingType = null;
+      let loadingType: string | null = null;
 
       // Poll for loading indicator (up to 2 seconds)
       const checkInterval = 200; // Check every 200ms
@@ -221,7 +164,7 @@ export class AIAssistantPage {
 
       if (allText && allText.length > 0) {
         // Remove common UI text and static welcome message
-        let cleaned = allText
+        const cleaned = allText
           .replace(/Type your message.../gi, '')
           .replace(/Press Enter to send.*/gi, '')
           .replace(/Welcome to Noosh AI! I'm here to assist you. How can I help you today\?/gi, '')
@@ -268,35 +211,5 @@ export class AIAssistantPage {
     } catch {
       console.warn('未找到清空按钮');
     }
-  }
-}
-
-/**
- * 工作区页面对象
- */
-export class WorkspacePage {
-  readonly page: Page;
-  readonly sidebarMenu: Locator;
-  readonly projectList: Locator;
-  readonly searchInput: Locator;
-  readonly userProfile: Locator;
-
-  constructor(page: Page) {
-    this.page = page;
-    this.sidebarMenu = page.locator('.sidebar, .side-nav, [role="navigation"]').first();
-    this.projectList = page.locator('.project-list, .projects');
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="搜索"]').first();
-    this.userProfile = page.locator('.user-profile, .user-menu').first();
-  }
-
-  async navigateToSection(sectionName: string) {
-    const section = this.page.locator(`text=${sectionName}, [aria-label="${sectionName}"]`).first();
-    await section.click();
-    await this.page.waitForLoadState('networkidle');
-  }
-
-  async searchProject(projectName: string) {
-    await this.searchInput.fill(projectName);
-    await this.page.waitForTimeout(1000);
   }
 }

@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
  * 全局设置 - 在所有测试之前运行
  * 用于准备测试环境、认证状态等
  */
-async function globalSetup(config: FullConfig) {
+async function globalSetup(_config: FullConfig) {
   dotenv.config();
 
   console.log('🚀 开始全局设置...');
@@ -17,7 +17,11 @@ async function globalSetup(config: FullConfig) {
   try {
     console.log('🔐 正在登录并保存认证状态...');
 
-    await page.goto(process.env.BASE_URL || 'https://nooshchat.qa2.noosh.com/workspace/chatbot', {
+    // 访问授权登录页面
+    const authUrl = process.env.AUTH_URL || 'https://nooshauth.qa2.noosh.com';
+    console.log(`📍 访问授权登录页面: ${authUrl}`);
+
+    await page.goto(authUrl, {
       waitUntil: 'load',
       timeout: 60000
     });
@@ -48,15 +52,22 @@ async function globalSetup(config: FullConfig) {
     await page.fill(passwordSelector, process.env.TEST_PASSWORD || 'noosh123');
     await page.click(submitSelector);
 
-    // 等待导航完成 - 可能会经过多个重定向
-    // Sometimes the redirect chain is complex, so we wait and then manually navigate
-    try {
-      await page.waitForURL('**/workspace/**', { timeout: 30000 });
-    } catch (error) {
-      // If we're stuck on a redirect, try navigating directly to the workspace
-      console.log('⚠️  重定向超时，尝试直接导航到工作区...');
-      await page.goto(process.env.BASE_URL + '/workspace/dashboard', { timeout: 30000 });
-    }
+    console.log('⏳ 等待登录完成...');
+
+    // 等待登录成功（页面会跳转）
+    await page.waitForTimeout(5000); // 给时间完成登录和跳转
+
+    // 登录成功后，跳转到应用主站
+    const appUrl = process.env.BASE_URL || 'https://nooshchat.qa2.noosh.com';
+    console.log(`📍 跳转到应用主站: ${appUrl}/workspace/chatbot`);
+
+    await page.goto(`${appUrl}/workspace/chatbot`, {
+      waitUntil: 'networkidle',
+      timeout: 45000
+    });
+
+    const finalUrl = page.url();
+    console.log(`✅ 到达页面: ${finalUrl}`);
 
     // 保存认证状态
     await context.storageState({ path: 'auth-state.json' });

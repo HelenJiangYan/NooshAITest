@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { MCPHelper } from './mcp-helper';
-import { AIAssistantPage } from './page-objects';
+import { AIAssistantPage } from '../pages';
 import * as fs from 'fs';
 import * as path from 'path';
 
