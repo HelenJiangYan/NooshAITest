@@ -53,5 +53,6 @@ yarn-error.log*
 *.tmp
 *.temp
 global-setup-error.png
+debug-*.html
 
 .claude/
