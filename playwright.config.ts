@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 import * as dotenv from 'dotenv';
 
 // 加载环境变量
@@ -63,8 +63,13 @@ export default defineConfig({
     // 浏览器选项
     headless: process.env.HEADLESS !== 'false',
 
-    // 视口大小
-    viewport: { width: 1920, height: 1080 },
+    // 视口大小 - 设为 null 以使用浏览器窗口大小（配合最大化使用）
+    viewport: null,
+
+    // 浏览器启动选项 - 窗口最大化
+    launchOptions: {
+      args: ['--start-maximized'],
+    },
 
     // 操作超时
     actionTimeout: 15 * 1000,
@@ -102,7 +107,12 @@ export default defineConfig({
     {
       name: 'chromium',
       use: {
-        ...devices['Desktop Chrome'],
+        // 不使用 devices['Desktop Chrome'] 因为其 deviceScaleFactor 与 viewport: null 不兼容
+        channel: 'chrome',
+        viewport: null,
+        launchOptions: {
+          args: ['--start-maximized'],
+        },
       },
     },
 
