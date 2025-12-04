@@ -29,8 +29,8 @@ export class MCPHelper {
       .first();
 
     try {
-      // Wait for input to be visible
-      await chatInput.waitFor({ state: 'visible', timeout: 5000 });
+      // Wait for input to be visible (increased timeout for slow networks/page transitions)
+      await chatInput.waitFor({ state: 'visible', timeout: 15000 });
       console.log(`✓ 输入框可见`);
 
       // CRITICAL: Wait for input to be enabled (not disabled)
