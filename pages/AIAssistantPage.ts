@@ -188,29 +188,56 @@ export class AIAssistantPage {
   }
 
   async getLastMessageText(): Promise<string> {
-    // Try to get text from various message structures
     try {
-      // First try to find all text in the chat main area (excluding the input)
+      // 方法1: 尝试获取最后一个 AI 响应消息块
+      // Noosh AI 的消息结构通常是交替的用户消息和AI响应
+      const aiResponseBlocks = this.page.locator('[data-testid="ai-response"], [data-testid="assistant-message"], .ai-message, .assistant-message, .bot-message');
+      const aiBlockCount = await aiResponseBlocks.count().catch(() => 0);
+
+      if (aiBlockCount > 0) {
+        const lastAiBlock = aiResponseBlocks.nth(aiBlockCount - 1);
+        const text = await lastAiBlock.textContent().catch(() => '');
+        if (text && text.length > 10) {
+          console.log(`📝 提取AI响应块（前200字符）: ${text.substring(0, 200)}...`);
+          return this.cleanMessageText(text);
+        }
+      }
+
+      // 方法2: 尝试通过消息容器获取最后一条消息
+      const messageContainers = this.page.locator('[role="article"], .message-container, .chat-message');
+      const containerCount = await messageContainers.count().catch(() => 0);
+
+      if (containerCount > 0) {
+        // 从最后往前找，跳过用户消息
+        for (let i = containerCount - 1; i >= 0; i--) {
+          const container = messageContainers.nth(i);
+          const text = await container.textContent().catch(() => '');
+
+          // 检查是否是 AI 响应（通常不是纯用户输入）
+          if (text && text.length > 20) {
+            // 如果文本不是以用户的输入开头，可能是AI响应
+            const isLikelyAiResponse = /Project|Task|Search|Result|Complete|Error|Sorry|I |Here|Found|Created|Updated|List/i.test(text);
+            if (isLikelyAiResponse) {
+              console.log(`📝 提取消息容器（前200字符）: ${text.substring(0, 200)}...`);
+              return this.cleanMessageText(text);
+            }
+          }
+        }
+      }
+
+      // 方法3: 降级方案 - 获取整个聊天区域的文本
       const chatArea = this.page.locator('main, [role="main"], .chat-area, .conversation-area').first();
       const allText = await chatArea.textContent().catch(() => '');
 
       if (allText && allText.length > 0) {
-        // Remove common UI text and static welcome message
-        const cleaned = allText
-          .replace(/Type your message.../gi, '')
-          .replace(/Press Enter to send.*/gi, '')
-          .replace(/Welcome to Noosh AI! I'm here to assist you. How can I help you today\?/gi, '')
-          .replace(/Just now/g, '|||')  // Use delimiter for "Just now" timestamps
-          .trim();
-
-        console.log(`📝 提取的消息文本（前200字符）: ${cleaned.substring(0, 200)}...`);
-        return cleaned;
+        console.log(`📝 提取聊天区域文本（前200字符）: ${allText.substring(0, 200)}...`);
+        return this.cleanMessageText(allText);
       }
     } catch (error) {
       console.log(`⚠️  获取消息时出错: ${error}`);
     }
 
-    // Fallback to trying specific message locators
+    // 最后降级: 使用原有的 messages locator
     const messageCount = await this.messages.count();
     if (messageCount > 0) {
       const lastMsg = this.messages.nth(messageCount - 1);
@@ -218,6 +245,35 @@ export class AIAssistantPage {
     }
 
     return '';
+  }
+
+  /**
+   * 清理消息文本，移除UI元素和噪音
+   */
+  private cleanMessageText(text: string): string {
+    return text
+      // 移除输入框提示
+      .replace(/Type your message.../gi, '')
+      .replace(/Press Enter to send.*/gi, '')
+      // 移除欢迎消息
+      .replace(/Welcome to Noosh AI!.*?How can I help you today\?/gi, '')
+      // 移除时间戳
+      .replace(/Just now/gi, ' ')
+      .replace(/\d+ minutes? ago/gi, ' ')
+      .replace(/\d+ hours? ago/gi, ' ')
+      // 移除加载状态
+      .replace(/Thinking[\d:\s]*/gi, '')
+      .replace(/Processing your message\.\.\./gi, '')
+      .replace(/Analyzing user request/gi, '')
+      .replace(/COMPLETED[\d:\s]*/gi, '')
+      // 移除UI元素
+      .replace(/Quick Actions[\d:\s]*/gi, '')
+      .replace(/\d+ tools? executed,? \d* ?thoughts?/gi, '')
+      .replace(/\d+ events?/gi, '')
+      // 移除分隔符和多余空白
+      .replace(/\|\|\|/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   async getAllMessages(): Promise<string[]> {

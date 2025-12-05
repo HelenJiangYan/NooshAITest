@@ -34,7 +34,7 @@ export const ContextContinuityScenarios: ConversationScenario[] = [
       {
         userMessage: 'list all my projects',
         expectedKeywords: ['project', 'Projects Associated'],
-        qualityCheck: { minLength: 100 }
+        qualityCheck: { minLength: 40 }
       },
       {
         userMessage: 'copy the first one',
